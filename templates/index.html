@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Scoring Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      color: #64748b;
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .drop-zone {
+      border: 2px dashed #334155;
+      border-radius: 14px;
+      padding: 48px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #38bdf8;
+      background: rgba(56,189,248,0.05);
+    }
+
+    .drop-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    .drop-zone .hint {
+      color: #38bdf8;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .drop-zone .sub-hint {
+      color: #475569;
+      font-size: 0.82rem;
+      margin-top: 6px;
+    }
+
+    #filename {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    #filename span {
+      background: #0f172a;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+      color: #38bdf8;
+    }
+
+    .btn {
+      margin-top: 24px;
+      width: 100%;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .btn:disabled { background: #1e293b; border: 1px solid #334155; color: #475569; cursor: not-allowed; transform: none; }
+
+    .loader {
+      display: none;
+      margin-top: 28px;
+      text-align: center;
+    }
+
+    .loader .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #1e293b;
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loader p { color: #64748b; font-size: 0.88rem; }
+
+    .error-box {
+      display: none;
+      margin-top: 20px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.88rem;
+    }
+
+    /* Results */
+    .result-card {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 640px;
+      margin-top: 32px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: none;
+    }
+
+    .candidate-info { margin-bottom: 24px; }
+    .candidate-info h2 { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; }
+    .candidate-info .gh-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #0f172a;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .scores-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .score-chip {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .score-chip .s-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      font-weight: 600;
+    }
+
+    .score-chip .s-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      line-height: 1.1;
+      margin-top: 4px;
+    }
+
+    .score-chip.bonus .s-value { color: #34d399; }
+    .score-chip.deductions .s-value { color: #f87171; }
+
+    .total-banner {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .total-banner .t-label { font-weight: 700; font-size: 1rem; }
+    .total-banner .t-value { font-size: 2.4rem; font-weight: 900; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #334155;
+      margin: 24px 0;
+    }
+
+    .evidence-list {
+      list-style: none;
+    }
+
+    .evidence-list li {
+      padding: 8px 0;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .evidence-list li::before {
+      content: '✦';
+      color: #38bdf8;
+      font-size: 0.65rem;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    .summary-box {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.88rem;
+      color: #94a3b8;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🤖 Resume Scoring Agent</h1>
+    <p>Upload a PDF resume · Get AI-powered scores enriched with GitHub signals</p>
+  </header>
+
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="resumeFile" accept=".pdf" />
+      <div class="drop-icon">📄</div>
+      <div class="hint">Click to upload or drag & drop</div>
+      <div class="sub-hint">PDF resumes only · Max 10MB</div>
+    </div>
+
+    <div id="filename"></div>
+
+    <button class="btn" id="submitBtn" disabled>Analyze Resume</button>
+
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <p>Analyzing resume & fetching GitHub signals…</p>
+      <p style="margin-top:4px;color:#334155;font-size:0.8rem;">This may take 30–90 seconds</p>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="candidate-info">
+      <h2 id="rName"></h2>
+      <div class="gh-tag">⚡ GitHub: <span id="rGithub"></span></div>
+    </div>
+
+    <div class="section-title">Score Breakdown</div>
+    <div class="scores-grid">
+      <div class="score-chip"><div class="s-label">Open Source</div><div class="s-value" id="sOS">—</div></div>
+      <div class="score-chip"><div class="s-label">Self Projects</div><div class="s-value" id="sSP">—</div></div>
+      <div class="score-chip"><div class="s-label">Production</div><div class="s-value" id="sPR">—</div></div>
+      <div class="score-chip"><div class="s-label">Technical Skills</div><div class="s-value" id="sTS">—</div></div>
+      <div class="score-chip bonus"><div class="s-label">Bonus</div><div class="s-value" id="sBN">—</div></div>
+      <div class="score-chip deductions"><div class="s-label">Deductions</div><div class="s-value" id="sDED">—</div></div>
+    </div>
+    <div class="total-banner">
+      <span class="t-label">Total Score</span>
+      <span class="t-value" id="sTotal">—</span>
+    </div>
+
+    <hr class="divider" id="evidenceDivider" style="display:none" />
+    <div id="evidenceSection" style="display:none">
+      <div class="section-title">Evidence</div>
+      <ul class="evidence-list" id="evidenceList"></ul>
+    </div>
+
+    <hr class="divider" id="summaryDivider" style="display:none" />
+    <div id="summarySection" style="display:none">
+      <div class="section-title">Summary</div>
+      <div class="summary-box" id="summaryText"></div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('resumeFile');
+    const dropZone  = document.getElementById('dropZone');
+    const fileLabel = document.getElementById('filename');
+    const btn       = document.getElementById('submitBtn');
+    const loader    = document.getElementById('loader');
+    const errorBox  = document.getElementById('errorBox');
+    const resultCard = document.getElementById('resultCard');
+
+    // Drag-and-drop styles
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0];
+      fileLabel.innerHTML = f ? `<span>📎 ${f.name}</span>` : '';
+      btn.disabled = !f;
+      errorBox.style.display = 'none';
+      resultCard.style.display = 'none';
+    });
+
+    btn.addEventListener('click', async () => {
+      errorBox.style.display = 'none';
+      resultCard.style.display = 'none';
+      loader.style.display = 'block';
+      btn.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res  = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Evaluation failed.');
+        renderResult(data);
+      } catch (err) {
+        errorBox.textContent = '❌ ' + err.message;
+        errorBox.style.display = 'block';
+      } finally {
+        loader.style.display = 'none';
+        btn.disabled = false;
+      }
+    });
+
+    function renderResult(d) {
+      const s = d.scores || {};
+      document.getElementById('rName').textContent    = d.name || 'Unknown';
+      document.getElementById('rGithub').textContent  = d.github_username || 'N/A';
+      document.getElementById('sOS').textContent   = s.open_source   ?? '—';
+      document.getElementById('sSP').textContent   = s.self_projects  ?? '—';
+      document.getElementById('sPR').textContent   = s.production     ?? '—';
+      document.getElementById('sTS').textContent   = s.technical_skills ?? '—';
+      document.getElementById('sBN').textContent   = '+' + (s.bonus      ?? 0);
+      document.getElementById('sDED').textContent  = '-' + (s.deductions ?? 0);
+      document.getElementById('sTotal').textContent = s.total ?? '—';
+
+      // Evidence
+      const evList = document.getElementById('evidenceList');
+      evList.innerHTML = '';
+      if (d.evidence && d.evidence.length) {
+        d.evidence.forEach(e => {
+          const li = document.createElement('li');
+          li.textContent = e;
+          evList.appendChild(li);
+        });
+        document.getElementById('evidenceDivider').style.display = 'block';
+        document.getElementById('evidenceSection').style.display = 'block';
+      }
+
+      // Summary
+      if (d.summary) {
+        document.getElementById('summaryText').textContent = d.summary;
+        document.getElementById('summaryDivider').style.display = 'block';
+        document.getElementById('summarySection').style.display = 'block';
+      }
+
+      resultCard.style.display = 'block';
+      resultCard.scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
